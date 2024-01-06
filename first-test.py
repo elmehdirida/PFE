@@ -4,6 +4,8 @@ from tensorflow.keras.layers import Input, Dropout, LSTM, Dense, Conv1D, MaxPool
 from tensorflow.keras.models import Model
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, r2_score
+import random
+import numpy as np
 
 def load_data(filename):
     data = pd.read_csv(filename, sep=';', parse_dates={'datetime': ['time']}, index_col='datetime')
@@ -63,6 +65,10 @@ if __name__ == '__main__':
     model = plcnet(X_scaled, y_scaled)
 
     # Make predictions
+    # Set random seed for reproducibility
+    random.seed(123)
+    np.random.seed(123)
+
     predictions_scaled = model.predict(X_scaled)
 
     # Inverse transform the predictions to original scale
