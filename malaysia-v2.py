@@ -12,7 +12,20 @@ def load_data(filename, input_hours, output_hours):
     data['time'] = pd.to_datetime(data['time'], format='%m/%d/%y %I:%M %p')
     data['load'] = pd.to_numeric(data['load'], errors='coerce')
     data = data.dropna()
+    # Filter by year for training and testing
+    train_data = data[data['time'].dt.year == 2009]  # Training set: 2009
+    test_data = data[data['time'].dt.year == 2010]  # Testing set: 2010
 
+    # Create X and y for training 
+    X_train, y_train = create_xy(train_data, input_hours, output_hours)
+
+    # Create X and y for testing
+    X_test, y_test = create_xy(test_data, input_hours, output_hours)
+
+    return X_train, y_train, X_test, y_test
+
+# Helper function (you likely already have this)
+def create_xy(data, input_hours, output_hours):
     X = []
     y = []
     for i in range(len(data) - input_hours - output_hours + 1):
@@ -20,11 +33,8 @@ def load_data(filename, input_hours, output_hours):
         y_val = data['load'].iloc[i+input_hours:i+input_hours+output_hours]
         X.append(x)
         y.append(y_val)
+    return np.array(X), np.array(y)
 
-    X = np.array(X)
-    y = np.array(y)
-
-    return X, y
 
 def create_plcnet_model(input_shape, output_units):
     # CNN Path
@@ -51,36 +61,37 @@ def create_plcnet_model(input_shape, output_units):
     model.compile(optimizer='adam', loss='mse')
     return model
 
-# Load and preprocess the data
-X, y = load_data('hourly_load_data.csv', input_hours=24, output_hours=1)
+X_train, y_train, X_test, y_test = load_data('hourly_load_data.csv', input_hours=24, output_hours=1)
 
-# Normalize the data
+# Normalize the data (apply normalization separately to training and testing)
 scaler_X = MinMaxScaler()
 scaler_y = MinMaxScaler()
-X_scaled = scaler_X.fit_transform(X.reshape(-1, 1)).reshape(X.shape)
-y_scaled = scaler_y.fit_transform(y)  # Reshaping y as needed
+X_train_scaled = scaler_X.fit_transform(X_train.reshape(-1, 1)).reshape(X_train.shape)
+y_train_scaled = scaler_y.fit_transform(y_train)  
+X_test_scaled = scaler_X.transform(X_test.reshape(-1, 1)).reshape(X_test.shape)  # Use fitted scaler_X
+y_test_scaled = scaler_y.transform(y_test)
 
 # Create the PLCNet model
 model = create_plcnet_model(input_shape=(24, 1), output_units=1)
 
-# Train the model
-model.fit([X_scaled, X_scaled], y_scaled, epochs=20)
+# Train the model (use the training data)
+model.fit([X_train_scaled, X_train_scaled], y_train_scaled, epochs=20)
 
-# Make predictions
-predictions_scaled = model.predict([X_scaled, X_scaled])
+predictions_scaled = model.predict([X_test_scaled, X_test_scaled])
 
-# Inverse transform the predictions to original scale
+# Inverse transform the predictions and the real y test
 predictions_original_scale = scaler_y.inverse_transform(predictions_scaled)
+y_test_original_scale = scaler_y.inverse_transform(y_test_scaled) 
 
-mse = mean_squared_error(y, predictions_original_scale)
+# Calculate metrics
+mse = mean_squared_error(y_test_original_scale, predictions_original_scale) # Use y_test_original_scale
 rmse = np.sqrt(mse)
 print(f'Root Mean Squared Error: {rmse}')
-mape = mean_absolute_percentage_error(y, predictions_original_scale)
-
+mape = mean_absolute_percentage_error(y_test_original_scale, predictions_original_scale) 
 print(f'MAPE (Mean Absolute Percentage Error): {mape * 100:.2f}%')
 
-r2 = r2_score(y, predictions_original_scale)
+r2 = r2_score(y_test_original_scale, predictions_original_scale)
 print(f'R-squared value: {r2}')
 
-prediction_percentage = 100 * (1 - mse / np.var(y))
+prediction_percentage = 100 * (1 - mse / np.var(y_test_original_scale)) # Use y_test_original_scale
 print(f'Prediction Percentage: {prediction_percentage:.2f}%')

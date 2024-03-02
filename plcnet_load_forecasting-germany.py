@@ -74,9 +74,12 @@ predictions_scaled = model.predict([X_scaled, X_scaled])
 predictions_original_scale = scaler_y.inverse_transform(predictions_scaled)
 
 
-# Calculate and print MSE
+# Calculate rmse
 mse = mean_squared_error(y, predictions_original_scale)
+rmse = np.sqrt(mse)
+print(f'RMSE: {rmse:.2f}')
 
+# Calculate mape
 mape = mean_absolute_percentage_error(y, predictions_original_scale)
 
 print(f'MAPE (Mean Absolute Percentage Error): {mape * 100:.2f}%')
