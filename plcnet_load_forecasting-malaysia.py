@@ -27,7 +27,6 @@ def load_data(filename, input_hours, output_hours):
 
     return X, y
 
-# PLCNet model
 def create_plcnet_model(input_shape, output_units):
     # CNN Path
     cnn_input = Input(shape=input_shape)
@@ -44,9 +43,10 @@ def create_plcnet_model(input_shape, output_units):
     merged = concatenate([lstm, cnn_flattened])
     merged_reshaped = Reshape((1, -1))(merged) # Reshape for LSTM compatibility
     merged_lstm = LSTM(300, activation='relu')(merged_reshaped)
-    merged_lstm = Dropout(0.3)(merged_lstm)
-    dense = Dense(units=128, activation='relu')(merged_lstm)
-    output = Dense(units=output_units, activation='relu')(dense)
+    merged_lstm = Dropout(0.3)(merged_lstm) # 30% dropout to avoid overfitting
+    dense1 = Dense(units=128, activation='sigmoid')(merged_lstm) # Sigmoid activation function
+    dense2 = Dense(units=64, activation='sigmoid')(dense1) # Sigmoid activation function
+    output = Dense(units=output_units, activation='sigmoid')(dense2) # Sigmoid activation function
 
     model = tf.keras.models.Model(inputs=[cnn_input, lstm_input], outputs=output)
     model.compile(optimizer='adam', loss='mse')
